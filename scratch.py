@@ -1,85 +1,101 @@
-import numpy as np
+import math
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
+import numpy as np
 
-# Stałe
-G = 6.67430e-11  # Stała grawitacyjna [m^3/kg/s^2]
-m1 = 5.972e24     # Masa ciała 1 (Ziemia) [kg]
-m2 = 7.34767309e22  # Masa ciała 2 (Księżyc) [kg]
+class Planet:
+    def __init__(self, x, y, z, radius, color, mass, vx=0, vy=0, vz=0):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.radius = radius
+        self.color = color
+        self.mass = mass
+        self.vx = vx
+        self.vy = vy
+        self.vz = vz
+        self.orbit = [(x, y, z)]
 
-# Początkowe warunki
-x1_0 = 0.0    # Początkowa pozycja ciała 1 na osi x [m]
-y1_0 = 0.0    # Początkowa pozycja ciała 1 na osi y [m]
-x2_0 = 3.844e8  # Początkowa pozycja ciała 2 na osi x [m] (odległość Ziemia-Księżyc)
-y2_0 = 0.0    # Początkowa pozycja ciała 2 na osi y [m]
-vx1_0 = 0.0   # Początkowa prędkość ciała 1 na osi x [m/s]
-vy1_0 = 1.0  # Początkowa prędkość ciała 1 na osi y [m/s] (prędkość orbitalna Ziemi)
-vx2_0 = 0.0   # Początkowa prędkość ciała 2 na osi x [m/s]
-vy2_0 = 0.0   # Początkowa prędkość ciała 2 na osi y [m/s]
+def update_position(planet, dt):
+    planet.x += planet.vx * dt
+    planet.y += planet.vy * dt
+    planet.z += planet.vz * dt
 
-# Funkcja obliczająca przyspieszenie
-def acceleration(x1, y1, x2, y2):
-    r = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)  # Odległość między ciałami
-    ax1 = G * m2 * (x2 - x1) / r**3  # Przyspieszenie ciała 1 na osi x
-    ay1 = G * m2 * (y2 - y1) / r**3  # Przyspieszenie ciała 1 na osi y
-    ax2 = G * m1 * (x1 - x2) / r**3  # Przyspieszenie ciała 2 na osi x
-    ay2 = G * m1 * (y1 - y2) / r**3  # Przyspieszenie ciała 2 na osi y
-    return ax1, ay1, ax2, ay2
+def update_velocity(planet, force, dt):
+    ax = force[0] / planet.mass
+    ay = force[1] / planet.mass
+    az = force[2] / planet.mass
+    planet.vx += ax * dt
+    planet.vy += ay * dt
+    planet.vz += az * dt
 
-# Symulacja ruchu
-t_max = 200000  # Czas symulacji [s]
-dt = 100        # Krok czasowy [s]
+def gravitational_force(planet1, planet2):
+    G = 1.0
+    dx = planet2.x - planet1.x
+    dy = planet2.y - planet1.y
+    dz = planet2.z - planet1.z
+    distance_squared = dx**2 + dy**2 + dz**2
+    distance = math.sqrt(distance_squared)
+    force_magnitude = G * planet1.mass * planet2.mass / distance_squared
+    force_x = force_magnitude * dx / distance
+    force_y = force_magnitude * dy / distance
+    force_z = force_magnitude * dz / distance
+    return (force_x, force_y, force_z)
 
-# Listy do przechowywania wyników
-x1_list, y1_list, x2_list, y2_list = [], [], [], []
+def simulate(planets, dt):
+    for planet in planets:
+        net_force = [0, 0, 0]
+        for other_planet in planets:
+            if planet != other_planet:
+                force = gravitational_force(planet, other_planet)
+                net_force[0] += force[0]
+                net_force[1] += force[1]
+                net_force[2] += force[2]
+        update_velocity(planet, net_force, dt)
+    for planet in planets:
+        update_position(planet, dt)
+        planet.orbit.append((planet.x, planet.y, planet.z))
 
-# Warunki początkowe
-x1, y1, x2, y2 = x1_0, y1_0, x2_0, y2_0
-vx1, vy1, vx2, vy2 = vx1_0, vy1_0, vx2_0, vy2_0
+def animate(frame, planets, scatters, lines):
+    dt = 0.01
+    simulate(planets, dt)
 
-# Symulacja
-for t in range(0, t_max, dt):
-    ax1, ay1, ax2, ay2 = acceleration(x1, y1, x2, y2)
-    vx1 += ax1 * dt
-    vy1 += ay1 * dt
-    vx2 += ax2 * dt
-    vy2 += ay2 * dt
-    x1 += vx1 * dt
-    y1 += vy1 * dt
-    x2 += vx2 * dt
-    y2 += vy2 * dt
-    x1_list.append(x1)
-    y1_list.append(y1)
-    x2_list.append(x2)
-    y2_list.append(y2)
+    for i, planet in enumerate(planets):
+        updated_points = np.array(planet.orbit).T
+        lines[i].set_data(updated_points[0], updated_points[1])
+        lines[i].set_3d_properties(updated_points[2])
+        scatters[i]._offsets3d = (np.array([planet.x]), np.array([planet.y]), np.array([planet.z]))
 
-# Funkcja inicjująca animację
-def init():
-    line1.set_data([], [])
-    line2.set_data([], [])
-    return line1, line2
+# Tworzenie instancji Planet z początkowymi współrzędnymi i prędkościami
+v = 3
+L = 5  # Zmiana skali, aby lepiej wizualizować
 
-# Funkcja animacji
-def animate(i):
-    line1.set_data(x1_list[:i], y1_list[:i])
-    line2.set_data(x2_list[:i], y2_list[:i])
-    return line1, line2
-# Wykres
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.set_xlim(-1.5e8, 5e8)  # Zmieniona skala osi x
-ax.set_ylim(-1.5e8, 1.5e8)  # Zmieniona skala osi y
-ax.set_xlabel('Pozycja na osi x [m]')
-ax.set_ylabel('Pozycja na osi y [m]')
-ax.set_title('Ruch grawitacyjny dwóch ciał')
+planet_A = Planet(1, 1, 2, 0.1, 'red', 10, 0, 0, 0)
+planet_B = Planet(L * 2, 1, 3, 0.1, 'green', 3, -v / 2, v * math.sqrt(3) / 2, 0)
+planet_C = Planet(0, 0, -2, 0.1, 'blue', 3, v, -v * math.sqrt(3) / 2, 0)
 
-# Linie trajektorii
-line1, = ax.plot([], [], lw=2, label='Ziemia')
-line2, = ax.plot([], [], lw=2, label='Księżyc')
-ax.legend()
-ax.grid(True)
+# Tworzenie listy planet
+planets = [planet_A, planet_B, planet_C]
 
-# Inicjalizacja animacji
-ani = FuncAnimation(fig, animate, init_func=init, frames=len(x1_list), interval=10, blit=True)
+# Konfiguracja animacji
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
 
-# Wyświetlenie animacji
+scatters = [ax.scatter(planet.x, planet.y, planet.z, color=planet.color, s=100) for planet in planets]
+lines = [ax.plot([], [], [], color=planet.color, linewidth=0.5)[0] for planet in planets]
+
+ani = FuncAnimation(fig, animate, fargs=(planets, scatters, lines), frames=range(1000), interval=50)
+
+# Ustawianie ograniczeń osi
+min_limit = -L
+max_limit = L
+ax.set_xlim(min_limit, max_limit)
+ax.set_ylim(min_limit, max_limit)
+ax.set_zlim(min_limit, max_limit)
+
+# Konfiguracja interaktywności
+ax.view_init(elev=20, azim=30)
+
+# Wyświetlanie animacji
 plt.show()
