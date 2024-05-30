@@ -57,8 +57,8 @@ def simulate(planets, dt):
         update_position(planet, dt)
         planet.orbit.append((planet.x, planet.y, planet.z))
 
-def animate(frame, planets, scatters, lines):
-    dt = 0.01
+def animate(frame, planets, scatters, lines, time_text):
+    dt = 0.01  # Small time step for stable simulation
     simulate(planets, dt)
 
     for i, planet in enumerate(planets):
@@ -67,35 +67,35 @@ def animate(frame, planets, scatters, lines):
         lines[i].set_3d_properties(updated_points[2])
         scatters[i]._offsets3d = (np.array([planet.x]), np.array([planet.y]), np.array([planet.z]))
 
-# Tworzenie instancji Planet z początkowymi współrzędnymi i prędkościami
-v = 3
-L = 5  # Zmiana skali, aby lepiej wizualizować
+    current_time = frame * dt * time_conversion
+    time_text.set_text(f'Time: {current_time:.2f} years')
 
-planet_A = Planet(1, 1, 2, 0.1, 'red', 10, 0, 0, 0)
-planet_B = Planet(L * 2, 1, 3, 0.1, 'green', 3, -v / 2, v * math.sqrt(3) / 2, 0)
-planet_C = Planet(0, 0, -2, 0.1, 'blue', 3, v, -v * math.sqrt(3) / 2, 0)
+# Initial positions and velocities for stable orbits
+L = 5
+time_conversion = 1 / 3.154e+7
 
-# Tworzenie listy planet
+planet_A = Planet(1, 0, 0, 0.1, 'red', 10, 0, 0.5, 0)
+planet_B = Planet(-1, 0, 0, 0.1, 'green', 3, 0, -0.5, 0)
+planet_C = Planet(0, 1, 0, 0.1, 'blue', 3, -0.5, 0, 0)
+
 planets = [planet_A, planet_B, planet_C]
 
-# Konfiguracja animacji
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
 scatters = [ax.scatter(planet.x, planet.y, planet.z, color=planet.color, s=100) for planet in planets]
 lines = [ax.plot([], [], [], color=planet.color, linewidth=0.5)[0] for planet in planets]
 
-ani = FuncAnimation(fig, animate, fargs=(planets, scatters, lines), frames=range(1000), interval=50)
+time_text = ax.text2D(0.05, 0.95, '', transform=ax.transAxes)
 
-# Ustawianie ograniczeń osi
+ani = FuncAnimation(fig, animate, fargs=(planets, scatters, lines, time_text), frames=range(1000), interval=20)
+
 min_limit = -L
 max_limit = L
 ax.set_xlim(min_limit, max_limit)
 ax.set_ylim(min_limit, max_limit)
 ax.set_zlim(min_limit, max_limit)
 
-# Konfiguracja interaktywności
 ax.view_init(elev=20, azim=30)
 
-# Wyświetlanie animacji
 plt.show()
